@@ -7,48 +7,81 @@ import { SearchParamProps } from "@/types";
 import React from "react";
 
 const CompletedEvents = async ({ searchParams }: SearchParamProps) => {
-	const page = Number(searchParams?.page) || 1;
-	const searchText = (searchParams?.query as string) || "";
-	const category = (searchParams?.category as string) || "";
-	const events = await getAllEvents({
-		query: searchText,
-		category,
-		page,
-		limit: 6,
-	});
+  const page = Number(searchParams?.page) || 1;
+  const searchText = (searchParams?.query as string) || "";
+  const category = (searchParams?.category as string) || "";
 
-	const currentDateTime = new Date();
-	const filterEvents = events?.data.filter((item: IEvent) => {
-		const startDateTime = new Date(item.startDateTime);
-		return startDateTime < currentDateTime;
-	});
+  // Fetch ALL events without pagination to ensure we get completed ones
+  const events = await getAllEvents({
+    query: searchText,
+    category,
+    page: 1,
+    limit: 100, // Fetch more events to find completed ones
+  });
 
-	return (
-		<>
-			<section className=" bg-primary-50 bg-dotted-pattern bg-cover bg-center py-5 md:py-10">
-				<h3 className="wrapper h3-bold text-center sm:text-left ">
-					Completed Events
-				</h3>
-			</section>
-			<section
-				id="events"
-				className="wrapper my-8 mt-20 overflow-y-auto max-h-[calc(100vh-150px)]">
-				<div className="flex w-full flex-col gap-5 md:flex-row">
-					<Search />
-					<CategoryFilter />
-				</div>
-				<AdminCollection
-					data={filterEvents}
-					emptyTitle="No Events Avaliable"
-					emptyStateSubtext="Come Back Later"
-					collectionType="All_Events"
-					limit={6}
-					page={Number(searchParams?.page) || 1}
-					totalPages={filterEvents?.totalPages}
-				/>
-			</section>
-		</>
-	);
+  const currentDateTime = new Date();
+  console.log(`[Completed Events] Current time:`, currentDateTime);
+  console.log(`[Completed Events] Total events fetched:`, events?.data?.length);
+
+  const filterEvents =
+    events?.data?.filter((item: IEvent) => {
+      // Ensure endDateTime is converted to Date object
+      const endDateTime =
+        typeof item.endDateTime === "string"
+          ? new Date(item.endDateTime)
+          : item.endDateTime;
+
+      const isCompleted = endDateTime < currentDateTime;
+      console.log(
+        `[Completed Events] Event: "${
+          item.title
+        }", EndDate: ${endDateTime.toISOString()}, IsCompleted: ${isCompleted}`
+      );
+      return isCompleted;
+    }) || [];
+
+  console.log(
+    `[Completed Events] Total events: ${events?.data?.length}, Filtered completed: ${filterEvents?.length}`
+  );
+  if (filterEvents && filterEvents.length > 0) {
+    console.log(
+      `[Completed Events] First event end date:`,
+      filterEvents[0].endDateTime
+    );
+  }
+
+  // Serialize the filtered events to ensure Date objects are converted to strings
+  const serializedEvents = filterEvents
+    ? JSON.parse(JSON.stringify(filterEvents))
+    : [];
+
+  return (
+    <>
+      <section className=" bg-primary-50 bg-dotted-pattern bg-cover bg-center py-5 md:py-10">
+        <h3 className="wrapper h3-bold text-center sm:text-left ">
+          Completed Events
+        </h3>
+      </section>
+      <section
+        id="events"
+        className="wrapper my-8 mt-20 overflow-y-auto max-h-[calc(100vh-150px)]"
+      >
+        <div className="flex w-full flex-col gap-5 md:flex-row">
+          <Search />
+          <CategoryFilter />
+        </div>
+        <AdminCollection
+          data={serializedEvents}
+          emptyTitle="No Events Avaliable"
+          emptyStateSubtext="Come Back Later"
+          collectionType="All_Events"
+          limit={6}
+          page={Number(searchParams?.page) || 1}
+          totalPages={events?.totalPages}
+        />
+      </section>
+    </>
+  );
 };
 
 export default CompletedEvents;
